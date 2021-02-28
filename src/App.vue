@@ -86,10 +86,26 @@
       </section>
 
       <template v-if="tickers.length">
+        <p>
+          <button
+            v-if="page > 1"
+            @click="page = +page - 1"
+            class="my-4 mx-2 inline-flex items-center py-2 px-4 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-full text-white bg-gray-600 hover:bg-gray-700 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+          >
+            Назад</button
+          ><button
+            v-if="hasNextPage"
+            @click="page = +page + 1"
+            class="my-4 mx-2 inline-flex items-center py-2 px-4 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-full text-white bg-gray-600 hover:bg-gray-700 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+          >
+            Вперед
+          </button>
+          Фильтр: <input v-model="filter" />
+        </p>
         <hr class="w-full border-t border-gray-600 my-4" />
         <dl class="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-3">
           <div
-            v-for="t in tickers"
+            v-for="t in filteredTickers()"
             :key="t.name"
             @click="select(t)"
             :class="{
@@ -185,11 +201,26 @@ export default {
       graph: [],
       coins: [],
       suggestedTickers: [],
-      error: false
+      error: false,
+      page: 1,
+      filter: "",
+      hasNextPage: true
     };
   },
 
   created: async function() {
+    const { filter, page } = Object.fromEntries(
+      new URL(window.location).searchParams.entries()
+    );
+
+    if (filter) {
+      this.filter = filter;
+    }
+
+    if (page) {
+      this.page = page;
+    }
+
     const tickersData = localStorage.getItem("coin-list");
     if (tickersData) {
       this.tickers = JSON.parse(tickersData);
@@ -208,6 +239,17 @@ export default {
   },
 
   methods: {
+    filteredTickers() {
+      const start = (this.page - 1) * 6;
+      const end = this.page * 6;
+      const filteredTickers = this.tickers.filter(({ name }) =>
+        name.toUpperCase().includes(this.filter.toUpperCase())
+      );
+      this.hasNextPage = filteredTickers.length > end;
+
+      return filteredTickers.slice(start, end);
+    },
+
     suggest() {
       const value = this.ticker.toUpperCase();
       this.suggestedTickers = this.ticker
@@ -245,20 +287,21 @@ export default {
       this.subscribeToUpdates(currentTicker.name);
 
       this.ticker = "";
+      this.filter = "";
       this.suggestedTickers = [];
     },
 
-    subscribeToUpdates(name) {
+    subscribeToUpdates(tickerName) {
       setInterval(async () => {
         const f = await fetch(
-          `https://min-api.cryptocompare.com/data/price?fsym=${name}&tsyms=USD&api_key=faf20d0fc6cd369e6ced5ef8358d49d38a5f4f1956b727248f9b9fb509646fdf`
+          `https://min-api.cryptocompare.com/data/price?fsym=${tickerName}&tsyms=USD&api_key=faf20d0fc6cd369e6ced5ef8358d49d38a5f4f1956b727248f9b9fb509646fdf`
         );
         const data = await f.json();
 
-        this.tickers.find(({ name }) => name === name).price =
+        this.tickers.find(({ name }) => name === tickerName).price =
           data.USD > 1 ? data.USD.toFixed(2) : data.USD.toPrecision(2);
 
-        if (this.sel?.name === name) {
+        if (this.sel?.name === tickerName) {
           this.graph.push(data.USD);
         }
       }, 5000);
@@ -278,6 +321,25 @@ export default {
       const minValue = Math.min(...this.graph);
       return this.graph.map(
         price => 5 + ((price - minValue) * 95) / (maxValue - minValue)
+      );
+    }
+  },
+  watch: {
+    filter() {
+      this.page = 1;
+      const { pathname } = window.location;
+      window.history.pushState(
+        null,
+        document.title,
+        `${pathname}?filter=${this.filter}&page=${this.page}`
+      );
+    },
+    page() {
+      const { pathname } = window.location;
+      window.history.pushState(
+        null,
+        document.title,
+        `${pathname}?filter=${this.filter}&page=${this.page}`
       );
     }
   }
