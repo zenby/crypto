@@ -190,6 +190,11 @@ export default {
   },
 
   created: async function() {
+    const tickersData = localStorage.getItem("coin-list");
+    if (tickersData) {
+      this.tickers = JSON.parse(tickersData);
+      this.tickers.forEach(({ name }) => this.subscribeToUpdates(name));
+    }
     try {
       const request = await fetch(
         "https://min-api.cryptocompare.com/data/all/coinlist?summary=true"
@@ -236,21 +241,27 @@ export default {
       };
 
       this.tickers.push(currentTicker);
+      localStorage.setItem("coin-list", JSON.stringify(this.tickers));
+      this.subscribeToUpdates(currentTicker.name);
+
+      this.ticker = "";
+      this.suggestedTickers = [];
+    },
+
+    subscribeToUpdates(name) {
       setInterval(async () => {
         const f = await fetch(
-          `https://min-api.cryptocompare.com/data/price?fsym=${currentTicker.name}&tsyms=USD&api_key=faf20d0fc6cd369e6ced5ef8358d49d38a5f4f1956b727248f9b9fb509646fdf`
+          `https://min-api.cryptocompare.com/data/price?fsym=${name}&tsyms=USD&api_key=faf20d0fc6cd369e6ced5ef8358d49d38a5f4f1956b727248f9b9fb509646fdf`
         );
         const data = await f.json();
 
-        this.tickers.find(({ name }) => name === currentTicker.name).price =
+        this.tickers.find(({ name }) => name === name).price =
           data.USD > 1 ? data.USD.toFixed(2) : data.USD.toPrecision(2);
 
-        if (this.sel?.name === currentTicker.name) {
+        if (this.sel?.name === name) {
           this.graph.push(data.USD);
         }
       }, 5000);
-      this.ticker = "";
-      this.suggestedTickers = [];
     },
 
     select(ticker) {
