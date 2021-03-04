@@ -232,8 +232,6 @@ export default {
       });
     }
 
-    setInterval(this.updateTickers, 5000);
-
     try {
       const request = await fetch(
         "https://min-api.cryptocompare.com/data/all/coinlist?summary=true"
@@ -289,6 +287,9 @@ export default {
       this.tickers
         .filter(t => t.name === tickerName)
         .forEach(t => {
+          if (t === this.selectedTicker) {
+            this.graph.push(price);
+          }
           t.price = price;
         });
     },
@@ -339,23 +340,6 @@ export default {
       if (price === "-") return price;
 
       return price > 1 ? price.toFixed(2) : price.toPrecision(2);
-    },
-
-    async updateTickers() {
-      if (!this.tickers.length) {
-        return;
-      }
-
-      // const exchangeData = await loadTickers(this.tickers.map(t => t.name));
-
-      // this.tickers.forEach(ticker => {
-      //   const price = exchangeData[ticker.name.toUpperCase()];
-      //   ticker.price = price ?? "-";
-      // });
-
-      // if (this.selectedTicker?.name === tickerName) {
-      //   this.graph.push(exchangeData.USD);
-      // }
     },
 
     select(ticker) {
